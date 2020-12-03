@@ -43,7 +43,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'resumeparser.urls'
+ROOT_URLCONF = 'pdfparser.urls'
 
 TEMPLATES = [
     {
@@ -62,7 +62,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'resumeparser.wsgi.application'
+WSGI_APPLICATION = 'pdfparser.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
@@ -70,7 +70,7 @@ WSGI_APPLICATION = 'resumeparser.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'resumeparser',
+        'NAME': 'pdfparser',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': 'localhost',

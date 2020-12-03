@@ -1,5 +1,5 @@
 """
-WSGI config for resumeparser project.
+WSGI config for pdfparser project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "resumeparser.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pdfparser.settings")
 
 application = get_wsgi_application()
