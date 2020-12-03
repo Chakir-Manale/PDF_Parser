@@ -2,7 +2,10 @@ import os
 import zipfile
 import re
 import PyPDF2
+import camelot
 from django.shortcuts import render
+
+from pdfrw import PdfReader
 
 from start.forms import UploadFileForm
 from start.models import UserResumes
@@ -16,11 +19,9 @@ WORD_NAMESPACE = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}
 PARA = WORD_NAMESPACE + 'p'
 TEXT = WORD_NAMESPACE + 't'
 
-relevtags=['Hobbies','HOBBIES','ExtraCurricularActivities','Activites','ACTIVITIES','Projects','PROJECTS','WORK','Work','ACHIEVEMENTS','Achievements','SKILLS','Skills','Experience','EXPERIENCE','Qualification','QUALIFICATION','Education','EDUCATION','EDUCATIONAL','Educational']
-
-
-
-
+relevtags = ['Hobbies', 'HOBBIES', 'ExtraCurricularActivities', 'Activites', 'ACTIVITIES', 'Projects', 'PROJECTS',
+             'WORK', 'Work', 'ACHIEVEMENTS', 'Achievements', 'SKILLS', 'Skills', 'Experience', 'EXPERIENCE',
+             'Qualification', 'QUALIFICATION', 'Education', 'EDUCATION', 'EDUCATIONAL', 'Educational']
 
 
 def get_docx_text(path):
@@ -44,18 +45,18 @@ def get_docx_text(path):
 
 
 def convertpdf(name):
-    #print("hiiii")
-    pdfobj=open("UploadedResumes/"+str(name), 'rb')
-    pdfreader=PyPDF2.PdfFileReader(pdfobj)
-    #print(pdfreader.numPages)
-    x = name[0:len(name)-3]
-    desturl =str(x)+"txt"
-    fob = open("UploadedResumes/"+desturl, "w", encoding="utf-8")
+    # print("hiiii")
+    pdfobj = open("UploadedResumes/" + str(name), 'rb')
+    pdfreader = PyPDF2.PdfFileReader(pdfobj)
+    # print(pdfreader.numPages)
+    x = name[0:len(name) - 3]
+    desturl = str(x) + "txt"
+    fob = open("UploadedResumes/" + desturl, "w", encoding="utf-8")
     for page in pdfreader.pages:
         s = page.extractText()
-        #print(s)
-        lines=s.split("\n")
-        #print(lines)
+        # print(s)
+        lines = s.split("\n")
+        # print(lines)
         for line in lines:
             fob.write((line + "\n"))
 
@@ -71,137 +72,157 @@ def handle_uploaded_file(file, name, content):
     if content.endswith("pdf"):
         convertpdf(name)
     if content.endswith("document"):
-
-        text = get_docx_text("UploadedResumes/"+str(name))
+        text = get_docx_text("UploadedResumes/" + str(name))
         text = os.linesep.join([s for s in text.splitlines() if s])
-        s=str(name)
-        fo = open('UploadedResumes/'+s[:s.rfind('.')]+".txt", "w",encoding="utf-8")
+        s = str(name)
+        fo = open('UploadedResumes/' + s[:s.rfind('.')] + ".txt", "w", encoding="utf-8")
         fo.write(text)
         fo.close()
 
 
 def index(request):
-    if request.method=="POST":
-        uploadform=UploadFileForm(request.POST, request.FILES)
+    if request.method == "POST":
+        uploadform = UploadFileForm(request.POST, request.FILES)
         if uploadform.is_valid():
-            #print("its in normal")
+            # print("its in normal")
+            # saving the file
             file = request.FILES['file']
+
+            pdf_file = UserResumes(pdf=file)
+            pdf_file.save()
+
             print(file.name)
             print(file.content_type)
-            handle_uploaded_file(file, file.name, file.content_type)
-            x = file.name[0:len(file.name) - 3]
-            desturl = str(x) + "txt"
-            fo = open("UploadedResumes/" + desturl, "r", encoding="utf-8")
-            text = fo.read()
-            fo.close()
-            fo = open("UploadedResumes/" + desturl, "r", encoding="utf-8")
-            s = fo.readlines()
-            fo.close()
+
+            f = os.path.join('resumeparser', 'UploadedResumes', file.name)
             # print(text)
-            #print(s)
+            # print(s)
             # num = re.sub(r'[\n][\n]', "", text)
-            num2 = re.sub(r'[\n]', "", text)
-            slist = num2.split()
-            mobno=extractmobile(text)
-            cgpa=extractcgpa(text)
-            email=extractemail(num2)
-            perc=extractperc(num2)
-            pinfo=extractpersonalinfo(slist)
-            obj=extractobjective(slist)
-            edu=extracteducation(slist)
-            skill=extractskills(slist)
-            achieve=extractachievements(slist)
-            projects=extractprojects(slist)
-            hobb=extracthobbies(slist)
-            user=UserResumes(pinfo=pinfo,cgpa=cgpa,mobile=mobno,email=email,objective=obj,education=edu,skill=skill,achievements=achieve,projects=projects,hobbies=hobb)
+
+            pdfobj = open(f, 'rb')
+            pdfreader = PyPDF2.PdfFileReader(pdfobj)
+            pages = pdfreader.numPages
+            tables = extractnotables(f)
+            title = extracttitle(f)
+
+            user = UserResumes(title=title, tables=tables, pages=pages, pdf=file)
+            # user = UserResumes(tables=tables, pinfo=pinfo, cgpa=cgpa, mobile=mobno, email=email, objective=obj,
+            #                   education=edu, skill=skill, achievements=achieve, projects=projects, hobbies=hobb)
             user.save()
-            for i in UserResumes.objects.all():
-                print(i.mobile)
-            return render(request, 'success.html', {'mobno':mobno,'email':email,'pinfo':pinfo,'obj':obj,'edu':edu,'skills':skill,'achieve':achieve,'projects':projects,'hobbies':hobb})
+            return render(request, 'success.html',
+                          {'fileform': UploadFileForm(),
+                           'files': UserResumes.objects.all()})
     else:
         print("default form created")
-        form=UploadFileForm()
-        #book = UserResumes(name="ujjwal", address="vfdv", mobile="9760017250", email="uj00007@gmail.com")
-        #book.save()
-    return render(request,'index.html',{'fileform':form})
+        form = UploadFileForm()
+        # book = UserResumes(name="ujjwal", address="vfdv", mobile="9760017250", email="uj00007@gmail.com")
+        # book.save()
+        return render(request, 'success.html',
+                      {'fileform': form,
+                       'files': UserResumes.objects.all()})
+
+
+def extractnotables(resume):
+    tables = camelot.read_pdf(resume)
+    notables = tables.n
+
+    return notables
+
+
+def extracttitle(file):
+    # Extract pdf title from pdf file
+    title = PdfReader(file).Info.Title
+    # Remove surrounding brackets that some pdf titles have
+    if title:
+        title = title.strip('()')
+    else:
+        title = ""
+    return title
 
 
 def extractmobile(s):
     m = re.search('[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]', s)
     if m:
-        #print("hello")
+        # print("hello")
         found = m.group(0)
         return found
+
 
 def extractcgpa(s):
     m = re.findall('[0-9][.][0-9]', s)
     if m:
-        #print("hello")
+        # print("hello")
         found = m
         return found[0]
 
+
 def extractemail(s):
-    #print("vsdf")
+    # print("vsdf")
     m = re.findall('[ ][a-z|0-9]+[@][a-z]+[.][a-z]+[ ]', s)
     if m:
-        #print("hello")
+        # print("hello")
         found = m
         return found[0]
+
 
 def extractperc(s):
     m = re.findall('[0-9][0-9][.][0-9][0-9]', s)
     if m:
-        #print("hello")
+        # print("hello")
         found = m
         return found
 
+
 def extractpersonalinfo(s):
-    text=""
+    text = ""
     for i in s:
-        i=str(i).strip()
-        #print(i)
-        if i!="CAREER" and i!="Objective" and i!="Career" and i!="OBJECTIVE":
-            text=text+str(i)+" "
+        i = str(i).strip()
+        # print(i)
+        if i != "CAREER" and i != "Objective" and i != "Career" and i != "OBJECTIVE":
+            text = text + str(i) + " "
         else:
-            #print("gaya")
+            # print("gaya")
             break
     return text
-    #print(ne_chunk(pos_tag(text.strip().split('.'))))
+    # print(ne_chunk(pos_tag(text.strip().split('.'))))
+
 
 def extractobjective(s):
     global relevtags
-    text=""
-    for i in range(0,len(s)):
-        temp=str(s[i]).strip()
-        #print(i)
+    text = ""
+    for i in range(0, len(s)):
+        temp = str(s[i]).strip()
+        # print(i)
 
         if not temp.find("OBJECTIVE"):
-            #print(temp)
-            #print("found")
-            for j in range(i+1,len(s)):
+            # print(temp)
+            # print("found")
+            for j in range(i + 1, len(s)):
                 if str(s[j]).strip() not in relevtags:
-                    text=text+str(s[j]).strip()+" "
+                    text = text + str(s[j]).strip() + " "
                 else:
                     break
         else:
 
             continue
     return text
-    #print(ne_chunk(pos_tag(text.strip().split('.'))))
+    # print(ne_chunk(pos_tag(text.strip().split('.'))))
+
 
 def extracteducation(s):
     global relevtags
-    text=""
-    for i in range(0,len(s)):
-        temp=str(s[i]).strip()
-        #print(i)
+    text = ""
+    for i in range(0, len(s)):
+        temp = str(s[i]).strip()
+        # print(i)
 
-        if not temp.find("EDUCATION") or not temp.find("EDUCATIONAL") or not temp.find("Education") or not temp.find("Educational") or not temp.find("QUALIFICATION"):
-            #print(temp)
-            #print("found")
-            for j in range(i+1,len(s)):
+        if not temp.find("EDUCATION") or not temp.find("EDUCATIONAL") or not temp.find("Education") or not temp.find(
+                "Educational") or not temp.find("QUALIFICATION"):
+            # print(temp)
+            # print("found")
+            for j in range(i + 1, len(s)):
                 if str(s[j]).strip() not in relevtags:
-                    text=text+str(s[j]).strip()+" "
+                    text = text + str(s[j]).strip() + " "
                 else:
                     break
         else:
@@ -212,57 +233,59 @@ def extracteducation(s):
 
 def extractskills(s):
     global relevtags
-    text=""
-    for i in range(0,len(s)):
-        temp=str(s[i]).strip()
-        #print(i)
+    text = ""
+    for i in range(0, len(s)):
+        temp = str(s[i]).strip()
+        # print(i)
 
         if not temp.find("SKILLS") or not temp.find("Skills"):
-            #print(temp)
-            #print("found")
-            for j in range(i+1,len(s)):
+            # print(temp)
+            # print("found")
+            for j in range(i + 1, len(s)):
                 if str(s[j]).strip() not in relevtags:
-                    text=text+str(s[j]).strip()+" "
+                    text = text + str(s[j]).strip() + " "
                 else:
                     break
         else:
 
             continue
     return text
+
 
 def extractachievements(s):
     global relevtags
-    text=""
-    for i in range(0,len(s)):
-        temp=str(s[i]).strip()
-        #print(i)
+    text = ""
+    for i in range(0, len(s)):
+        temp = str(s[i]).strip()
+        # print(i)
 
         if not temp.find("Achievements") or not temp.find("ACHIEVEMENTS"):
-            #print(temp)
-            #print("found")
-            for j in range(i+1,len(s)):
+            # print(temp)
+            # print("found")
+            for j in range(i + 1, len(s)):
                 if str(s[j]).strip() not in relevtags:
-                    text=text+str(s[j]).strip()+" "
+                    text = text + str(s[j]).strip() + " "
                 else:
                     break
         else:
 
             continue
     return text
+
 
 def extractprojects(s):
     global relevtags
-    text=""
-    for i in range(0,len(s)):
-        temp=str(s[i]).strip()
-        #print(i)
+    text = ""
+    for i in range(0, len(s)):
+        temp = str(s[i]).strip()
+        # print(i)
 
         if not temp.find("Projects") or not temp.find("PROJECTS"):
-            #print(temp)
-            #print("found")
-            for j in range(i+1,len(s)):
+            # print(temp)
+            # print("found")
+            for j in range(i + 1, len(s)):
                 if str(s[j]).strip() not in relevtags:
-                    text=text+str(s[j]).strip()+" "
+                    text = text + str(s[j]).strip() + " "
                 else:
                     break
         else:
@@ -270,19 +293,20 @@ def extractprojects(s):
             continue
     return text
 
+
 def extracthobbies(s):
     global relevtags
-    text=""
-    for i in range(0,len(s)):
-        temp=str(s[i]).strip()
-        #print(i)
+    text = ""
+    for i in range(0, len(s)):
+        temp = str(s[i]).strip()
+        # print(i)
 
         if not temp.find("Activities") or not temp.find("ACTIVITIES"):
-            #print(temp)
-            #print("found")
-            for j in range(i+1,len(s)):
+            # print(temp)
+            # print("found")
+            for j in range(i + 1, len(s)):
                 if str(s[j]).strip() not in relevtags:
-                    text=text+str(s[j]).strip()+" "
+                    text = text + str(s[j]).strip() + " "
                 else:
                     break
         else:
