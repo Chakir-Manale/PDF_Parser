@@ -8,3 +8,5 @@ app_name = 'start'
 urlpatterns = [
     url(r'^$', views.index, name='index'),
 ]
+
+

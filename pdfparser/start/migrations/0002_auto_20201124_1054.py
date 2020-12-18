@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='userresumes',
             name='pdf',
-            field=models.FileField(default=django.utils.timezone.now, upload_to='UploadedResumes/', verbose_name='Upload Resumes'),
+            field=models.FileField(default=django.utils.timezone.now, upload_to='UploadedPDFs/', verbose_name='Upload Resumes'),
             preserve_default=False,
         ),
         migrations.AddField(

@@ -22,12 +22,12 @@ TEXT = WORD_NAMESPACE + 't'
 
 def convertpdf(name):
     # print("test")
-    pdfobj = open("UploadedResumes/" + str(name), 'rb')
+    pdfobj = open("UploadedPDFs/" + str(name), 'rb')
     pdfreader = PyPDF2.PdfFileReader(pdfobj)
     # print(pdfreader.numPages)
     x = name[0:len(name) - 3]
     desturl = str(x) + "txt"
-    fob = open("UploadedResumes/" + desturl, "w", encoding="utf-8")
+    fob = open("UploadedPDFs/" + desturl, "w", encoding="utf-8")
     for page in pdfreader.pages:
         s = page.extractText()
         # print(s)
@@ -53,7 +53,7 @@ def index(request):
             print(file.name)
             print(file.content_type)
 
-            f = os.path.join('pdfparser', 'UploadedResumes', file.name)
+            f = os.path.join('pdfparser', 'UploadedPDFs', file.name)
 
             pdfobj = open(f, 'rb')
             pdfreader = PyPDF2.PdfFileReader(pdfobj)
